@@ -115,4 +115,81 @@ class UserController extends Controller
         }
     }
 
+    public static function list(Request $request)
+    {
+        try {
+            DB::beginTransaction();
+            $validate = Validator::make($request->all(), [
+                'page'              => 'nullable|integer',
+                'per_page'          => 'nullable|integer',
+                'keyword'           => 'nullable|string',
+                'filter'            => 'nullable',
+            ])->validate();
+
+            $page = isset($validate['page']) ? $validate['page'] : null;
+            $per_page = isset($validate['per_page']) ? $validate['per_page'] : null;
+            $keyword = isset($validate['keyword']) ? $validate['keyword'] : null;
+            $filter = isset($validate['filter']) ? json_decode($validate['filter'], true) : null;
+
+            $data = User::select('*')
+                ->orderBy('name');
+
+            if ($keyword != null) {
+                $data->where(function ($sql) use ($keyword) {
+                    $sql->whereRaw('LOWER(name) LIKE \'%' . strtolower($keyword) . '%\'');
+                    $sql->orWhereRaw('LOWER(email) LIKE \'%' . strtolower($keyword) . '%\'');
+                });
+            }
+
+            if ($filter != null) {
+                foreach ($filter as $key => $val) {
+                    if (is_array($val)) {
+                        $data->whereIn($key, $val);
+                    } else {
+                        $data->where($key, $val);
+                    }
+                }
+            }
+
+            $totalData = $data->get()->toArray();
+
+            if ($per_page != null) {
+                $datas = $data->paginate($validate['per_page'])->toArray()['data'];
+            } else {
+                $datas = $data->get()->toArray();
+            }
+
+            $result = [];
+            if (count($datas)) {
+                foreach($datas as $key => $val) {
+                    $result[$key] = $val;
+                }
+            }
+
+            DB::commit();
+            return responses(200, true, 'List User', $result, $page, $per_page, count($totalData));
+        } catch (QueryException $e) {
+            DB::rollBack();
+            return errorQuery($e);
+        }
+    }
+
+    public static function detail(Request $request)
+    {
+        try {
+            DB::beginTransaction();
+            $validate = Validator::make($request->all(), [
+                'id' => 'required|integer|exists:users,id'
+            ])->validate();
+
+            $data = User::where('id', $validate['id'])->first();
+
+            DB::commit();
+            return responses(200, true, 'Detail User', $data, null, null, null);
+        } catch (QueryException $e) {
+            DB::rollBack();
+            return errorQuery($e);
+        }
+    }
+
 }

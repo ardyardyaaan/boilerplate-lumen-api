@@ -28,6 +28,11 @@ $router->group(['prefix' => 'api'], function () use ($router) {
             $router->post('create', 'UserController@create');
             $router->post('verify', 'UserController@verification');
             $router->post('request/otp', 'UserController@requestOtp');
+            //AUTH REQUIRED
+            $router->group(['middleware' => 'auth'], function () use ($router) {
+                $router->get('list', 'UserController@list');
+                $router->get('detail', 'UserController@detail');
+            });
         });
         //AUTH
         $router->group(['prefix' => 'auth', 'namespace' => 'Auth'], function () use ($router) {
